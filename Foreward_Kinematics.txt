@@ -1,0 +1,368 @@
+Trans_Marix
+
+% Function to define the transformation matrix
+
+function [Trans] = Trans_Matrix(ai, alpha, d, tetha)
+    Trans = [cosd(tetha),            -1*sind(tetha),          0,             ai;
+             sind(tetha)*cosd(alpha), cosd(tetha)*cosd(alpha), -1*sind(alpha), -d*sind(alpha);
+             sind(tetha)*sind(alpha), cosd(tetha)*sind(alpha), cosd(alpha) ,    d*cosd(alpha);
+             0,                     0,                      0,              1;];
+end
+    
+
+__________________________________________________________________________________________________
+
+Link_trans_matrix
+
+%Function to calculate the link transformation matrix
+%Not an user input function but to calculate the designed 7 DOF
+%manipulator's transformation matrix
+
+function Link_trans_matrix
+
+% Declaring the joint angles, joint offsets as a variable
+syms d1 d2 a3 a4 d5 theta2 theta3 theta4 theta5 theta6 theta7
+
+%Function calls to calculate the transformation matrics for joint i wrt i-1
+t01 = Trans_Matrix(0, 0, d1, 0);
+t12 = Trans_Matrix(0, -90, d2, theta2);
+t23 = Trans_Matrix(a3, 90, 0, (theta3 +90));
+t34 = Trans_Matrix(a4, 0, 0, theta4);
+t45 = Trans_Matrix(0, 90, d5, theta5);
+t56 = Trans_Matrix(0, -90, 0, theta6);
+t67 = Trans_Matrix(0, 90, 0, theta7);
+
+% A matrix containing the individual transformation matrics
+Trans_Array = [t01; t12; t23; t34; t45; t56; t67;];
+
+%Displaying the matrics
+disp("The Transformation matrix with respect to the previous link is as follows");
+disp("Note that the input is degrees and the computation is in radian");
+j = 1;
+for i = 1:7
+    fprintf('T%d%d = \n', i-1, i)
+    disp(Trans_Array(j:j+3, :))
+    j = j + 4;
+end
+
+%Calculation of overall transformation matrix from frame 0 to frame 7
+
+t07 = t01*t12*t23*t34*t45*t56*t67;
+
+%To Display each value of the overall matrix independently
+
+for k = 1:4
+    for l = 1:4
+        if (k ~= 4) && (l ~= 4)         %For rotational components
+            fprintf('r%d%d = \n', k, l)
+            disp(simplify(t07(k,l)))
+        end
+         if (l==4) && (k ~= 4)          %For trans components
+                fprintf('T%d = \n', k)  % 1->X, 2->Y, 3->Z
+                disp(simplify(t07(k,l)))
+         end
+    end
+end
+
+_____________________________________________________________________________________________
+
+%DH_Parameters
+
+%Function to calculate the position of the end effector
+%Similar to Link_Trans_Matrix function but takes all the variables as
+%inputs and returns the overall transformation matrix
+
+function [t07] = DH_param (d1, d2, a3, a4, d5, theta2, theta3, theta4, theta5, theta6, theta7)
+
+
+
+
+%Function calls to calculate the transformation matrics for joint i wrt i-1
+t01 = Trans_Matrix(0, 0, d1, 0);
+t12 = Trans_Matrix(0, -90, d2, theta2);
+t23 = Trans_Matrix(a3, 90, 0, (theta3 +90));
+t34 = Trans_Matrix(a4, 0, 0, theta4);
+t45 = Trans_Matrix(0, 90, d5, theta5);
+t56 = Trans_Matrix(0, -90, 0, theta6);
+t67 = Trans_Matrix(0, 90, 0, theta7);
+
+
+%Calculation of overall transformation matrix from frame 0 to frame 7
+
+t07 = t01*t12*t23*t34*t45*t56*t67;
+
+
+______________________________________________________________________________________________________________
+
+
+%End_Effector_Loc
+
+%Function to know the location of end effector 
+
+%Predifined values for the link offsets and link lengths
+d2 = 500;
+d5 = 1500;
+a3 = 250;
+a4 = 1000;
+mount_offset = [0;0;100;0;]; %offset between frame 7 and 6 (not included in DH parameter)
+TCP_temp = [0;0;0;1;]; %No Tool Attached
+
+%To change link offset and lengths
+prompt = "Would you like to specify values for d2, a3, a4 and d5? (1-Yes/0-No): ";
+answer = input(prompt);
+
+if answer == 1
+    disp("Enter the following values\n")
+    prompt = 'd2 = ';
+    d2 = input(prompt);
+    prompt = 'd5 = ';
+    d5 = input(prompt);
+    prompt = 'a3 = ';
+    a3 = input(prompt);
+    prompt = 'a4 = ';
+    a4 = input(prompt);
+    
+end
+
+%To get user input of variables d1 and theta i
+
+disp("Enter the following robot variable values")
+prompt = ('d1 =');
+d1 = input(prompt);
+prompt = ('theta2 =');
+theta2 = input(prompt);
+prompt = ('theta3 =');
+theta3 = input(prompt);
+prompt = ('theta4 =');
+theta4 = input(prompt);
+prompt = ('theta5 =');
+theta5 = input(prompt);
+prompt = ('theta6 =');
+theta6 = input(prompt);
+prompt = ('theta7 =');
+theta7 = input(prompt);
+
+T07 = DH_param(d1, d2, a3, a4, d5, theta2, theta3, theta4, theta5, theta6, theta7)
+
+%To Difine TCP
+prompt = ("Do you have an end effector attacher? (1-Yes/0-No): ");
+answer2 = input(prompt);
+
+if answer2 == 1
+    prompt = 'Mention the TCP of the end effector [x; y; z; 1] with respect to mounting point (frame 7)';
+    TCP_temp = input(prompt);
+end
+
+TCP = TCP_temp + mount_offset;
+Frame7_0 = T07 * [0;0;0;1] 
+TCP_Global = T07 * TCP
+
+____________________________________________________________________________________________________________________________________
+
+%Inverse Kinematics
+
+%This program is to find the inverse kinematics of the manipulator
+
+function Inverse_kinematics
+
+%Robot Parameters
+%Predifined values for the link offsets and link lengths
+d2 = 352;
+d5 = 380;
+a3 = 70;
+a4 = 360;
+dtcp = 0;
+
+%To change link offset and lengths
+prompt = "Would you like to specify values for d2, a3, a4 and d5? (1-Yes/0-No): ";
+answer = input(prompt);
+
+if answer == 1
+    disp("Enter the following values\n")
+    prompt = 'd2 = ';
+    d2 = input(prompt);
+    prompt = 'd5 = ';
+    d5 = input(prompt);
+    prompt = 'a3 = ';
+    a3 = input(prompt);
+    prompt = 'a4 = ';
+    a4 = input(prompt);
+    prompt = 'dtcp = ';
+    dtcp = input(prompt);
+
+    
+end
+
+%Inputs for the end effector location (Target)
+prompt = ("Enter the value of target [Px Py Pz] (with respect to world:\n");
+target = input(prompt);
+Px = target(1);
+Py = target(2);
+Pz = target(3);
+
+%Part - 1 - Position (theta2, theta3 and theta4)
+
+%theta2
+theta2 =  -atan2d(Pz, Px) ;
+theta22 = 180 - atan2d(Pz, Px) ;
+
+%theta4 wrt theta2
+r = sqrt((Px - a3 * cosd(theta2))^2 + (Pz - a3 * sind(theta2))^2 );
+s = Py - d2;
+cosbeta = ((s^2 + r^2 - a4^2 - (d5 + dtcp)^2)/ (2 * a4 * (d5 + dtcp)));
+sinbeta = sqrt(1 - cosbeta^2);
+sinbeta1 = -sinbeta;
+beta1 = atan2d(sinbeta, cosbeta);
+theta4 = 90 - beta1;
+beta1a = atan2d(sinbeta1, cosbeta);
+theta4a = 90 - beta1a;
+
+
+%theta4 wrt theta22
+ra = sqrt((Px - a3 * cosd(theta22))^2 + (Pz - a3 * sind(theta22))^2 );
+s = Py - d2;
+cosbetaa = ((s^2 + ra^2 - a4^2 - (d5 + dtcp)^2)/ (2 * a4 * (d5 + dtcp)));
+sinbetaa = sqrt(1 - cosbetaa^2);
+sinbetaa1 = -sinbetaa;
+betaa2 = atan2d(sinbetaa, cosbetaa);
+theta44 = 90 - betaa2;
+betaa2a = atan2d(sinbetaa1, cosbetaa);
+theta44a = 90 - betaa2a;
+
+%theta3
+theta3 = 90 + atand((d5 + dtcp) * sind(beta1)/sqrt(s^2 + r^2)) + atand(s/r);
+theta3a = 90 + atand((d5 + dtcp) * sind(beta1a)/sqrt(s^2 + r^2)) + atand(s/r);
+theta3b = 90 + atand((d5 + dtcp) * sind(beta1)/sqrt(s^2 + r^2)) + atand(s/-r);
+theta3ab = 90 + atand((d5 + dtcp) * sind(beta1a)/sqrt(s^2 + r^2)) + atand(s/-r);
+theta33 = 90 + atand((d5 + dtcp) * sind(betaa2)/sqrt(s^2 + r^2)) + atand(s/r);
+theta33a = 90 + atand((d5 + dtcp) * sind(betaa2a)/sqrt(s^2 + r^2)) + atand(s/r);
+theta33b = 90 + atand((d5 + dtcp) * sind(betaa2)/sqrt(s^2 + r^2)) + atand(s/-r);
+theta33ab = 90 + atand((d5 + dtcp) * sind(betaa2a)/sqrt(s^2 + r^2)) + atand(s/-r);
+
+%Print Table
+
+disp("Config  |   theta2   |   theta3   |   theta4")
+fprintf("1       | %f  |  %f |  %f\n", theta2, theta3, theta4)
+fprintf("2       | %f  |  %f |  %f\n", theta2, theta3b, theta4)
+fprintf("3       | %f  |  %f |  %f\n", theta2, theta3a, theta4a)
+fprintf("4       | %f  |  %f |  %f\n", theta2, theta3ab, theta4a)
+fprintf("5       | %f  |  %f |  %f\n", theta22, theta33, theta44)
+fprintf("6       | %f  |  %f |  %f\n", theta22, theta33b, theta44)
+fprintf("7       | %f  |  %f |  %f\n", theta22, theta33a, theta44a)
+fprintf("8       | %f  |  %f |  %f\n", theta22, theta33ab, theta44a)
+
+
+___________________________________________________________________________________________
+
+Invese Kinematics iter 2
+
+%This program is to find the inverse kinematics of the manipulator
+
+function Inverse_kinematics
+
+%Robot Parameters
+%Predifined values for the link offsets and link lengths
+d2 = 352;
+d5 = 380;
+a3 = 70;
+a4 = 360;
+dtcp = 65;
+
+%To change link offset and lengths
+prompt = "Would you like to specify values for d2, a3, a4 and d5? (1-Yes/0-No): ";
+answer = input(prompt);
+
+if answer == 1
+    disp("Enter the following values\n")
+    prompt = 'd2 = ';
+    d2 = input(prompt);
+    prompt = 'd5 = ';
+    d5 = input(prompt);
+    prompt = 'a3 = ';
+    a3 = input(prompt);
+    prompt = 'a4 = ';
+    a4 = input(prompt);
+    prompt = 'dtcp = ';
+    dtcp = input(prompt);
+
+    
+end
+
+%Inputs for the end effector location (Target)
+prompt = ("Enter the value of target [Px Py Pz] (with respect to world:\n");
+target = input(prompt);
+Px = target(1);
+Py = target(2);
+Pz = target(3);
+Pz = -Pz;
+
+%Part - 1 - Position (theta2, theta3 and theta4)
+
+%theta2
+theta2 =  atan2d(Pz, Px) 
+theta22 = 180 + atan2d(Pz, Px) 
+%theta22 = theta2;
+
+%theta4 wrt theta2
+r = sqrt((Px - a3 * cosd(theta2))^2 + (Pz - a3 * sind(theta2))^2 )
+s = Py - d2
+cosbeta = ((s^2 + r^2 - a4^2 - (d5 + dtcp)^2)/ (2 * a4 * (d5 + dtcp)))
+sinbeta = sqrt(1 - cosbeta^2)
+sinbeta1 = -sinbeta
+beta1 = atan2d(sinbeta, cosbeta)
+theta4 = 90 - beta1
+beta1a = atan2d(sinbeta1, cosbeta)
+theta4a = 90 - beta1a
+
+%theta4 wrt theta22
+ra = sqrt((Px - a3 * cosd(theta22))^2 + (Pz - a3 * sind(theta22))^2 )
+s = Py - d2
+cosbetaa = ((s^2 + ra^2 - a4^2 - (d5 + dtcp)^2)/ (2 * a4 * (d5 + dtcp)))
+sinbetaa = sqrt(1 - cosbetaa^2)
+sinbetaa1 = -sinbetaa;
+betaa2 = atan2d(sinbetaa, cosbetaa)
+theta44 = 90 - betaa2
+betaa2a = atan2d(sinbetaa1, cosbetaa)
+theta44a = 90 - betaa2a
+
+%theta3
+%cosgamma = 
+
+cosgamma1 = (a4^2 + s^2 + r^2 - (d5 + dtcp)^2)/(2*a4*sqrt(s^2+r^2));
+singamma1 = sqrt(1 - cosgamma1^2);
+gamma1 = asind(singamma1)
+singamma2 = -singamma1;
+gamma2 = asind(singamma2)
+
+cosgamma3 = (a4^2 + s^2 + ra^2 - (d5 + dtcp)^2)/(2*a4*sqrt(s^2+ra^2));
+singamma3 = sqrt(1 - cosgamma3^2);
+gamma3 = asind(singamma3)
+singamma4 = -singamma3;
+gamma4 = asind(singamma4)
+
+alpha1 = atand(s/r)
+alpha2 = atand(s/ra)
+
+theta3 =  gamma1 + alpha1;
+theta3a = gamma2 + alpha1;
+theta3b = gamma3 + alpha1;
+theta3ab = gamma4 + alpha1;
+theta33 = gamma1 + alpha2;
+theta33a = gamma2 + alpha2;
+theta33b = gamma3 + alpha2;
+theta33ab = gamma4 + alpha2;
+
+%Print Table
+
+disp("Config  |   theta2   |   theta3   |   theta4")
+fprintf("1       | %f  |  %f |  %f\n", theta2, theta3, theta4)
+fprintf("2       | %f  |  %f |  %f\n", theta2, theta3a, theta4)
+fprintf("3       | %f  |  %f |  %f\n", theta2, theta3b, theta4a)
+fprintf("4       | %f  |  %f |  %f\n", theta2, theta3ab, theta4a)
+fprintf("5       | %f  |  %f |  %f\n", theta22, theta33, theta44)
+fprintf("6       | %f  |  %f |  %f\n", theta22, theta33b, theta44)
+fprintf("7       | %f  |  %f |  %f\n", theta22, theta33a, theta44a)
+fprintf("8       | %f  |  %f |  %f\n", theta22, theta33ab, theta44a)
+
+
+

@@ -1,0 +1,60 @@
+%function to calculate the jacobian matrix
+function jacobian
+%Robot Parameters
+%Predifined values for the link offsets and link lengths
+d2 = 352;
+d5 = 380;
+a3 = 70;
+a4 = 360;
+dtcp = 65;
+syms d1 theta2 theta3 theta4 theta5 theta6 theta7
+
+%Adding the variables into a matrix
+varpar = [d1; theta2; theta3; theta4; theta5; theta6; theta7;];
+
+% Calling and assigning values to get t07 trans matrix
+t07 = DH_param(d1, d2, a3, a4, d5, theta2, theta3, theta4, theta5, theta6, theta7);
+
+%++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+%Linear Parameters of jacobian
+X = t07(1,4)
+Y = t07(2,4)
+Z = t07(3,4)
+
+%Matrix holing X Y and Z
+lincomp = [X; Y; Z;];
+
+%Calculatng and displaying the values of linear component of jacobian matrix
+for k=1:3
+    for i=1:7
+        j_lin(k,i) = diff(lincomp(k),varpar(i));
+        %fprintf("J%d%d = ", k, i);
+        %disp(j_lin(k,i));
+    end
+end
+j_lin;
+
+%+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+%Rotational Component
+
+%Unit vectors of each joints wrt base
+trans_1 = [0;0;1];
+w2 = t07(1:3,2);
+w3 = t07(1:3,3);
+w4 = t07(1:3,3);
+w5 = t07(1:3,1);
+w6 = t07(1:3,3);
+w7 = t07(1:3,1);
+
+%Matrix of all angular velocity unit vectors
+angcomp = [trans_1; w2; w3; w4; w5; w6; w7];
+
+%angular part of the jacobian matrix
+j_ang = [diff(trans_1, varpar(1)) diff(w2, varpar(2)) diff(w3, varpar(3)) diff(w4, varpar(4)) diff(w5, varpar(5)) diff(w6, varpar(6)) diff(w7, varpar(7))];
+
+%J overall
+
+J = [j_lin; j_ang]
+
+
+
